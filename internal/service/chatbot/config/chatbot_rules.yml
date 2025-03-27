@@ -1,4 +1,5 @@
 # config/chatbot_rules.yaml
+# just for unittest run
 
 # 1. 基础配置
 metadata:
