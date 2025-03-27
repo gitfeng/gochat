@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - GIN_MODE=release
+      - DB_DSN=mysql://root:gochat@mysql:3306/gochat
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - gochat-net
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: gochat
+      MYSQL_DATABASE: gochat # 必须与SQL中的USE语句一致
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./config/sql/init_db.mysql.sql:/docker-entrypoint-initdb.d/init.sql # 新增初始化文件挂载
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    ports:
+      - "3306:3306"
+    networks:
+      - gochat-net
+
+volumes:
+  mysql-data:
+networks:
+  gochat-net:

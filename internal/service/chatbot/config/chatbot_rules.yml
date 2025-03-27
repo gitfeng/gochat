@@ -1,0 +1,136 @@
+# config/chatbot_rules.yaml
+
+# 1. 基础配置
+metadata:
+  bot_name: "智能助手"
+  version: "2.1.0"
+  default_lang: "zh-CN"
+
+# 2. 意图识别规则
+intent_detection:
+  regex_patterns:
+    - intent: "greeting"
+      patterns: 
+        - "你好|嗨|hello"
+        - "早上好|下午好|晚上好"
+      priority: 1
+
+    - intent: "weather_query"
+      patterns:
+        - ".*(天气|气温|下雨).*"
+      required_slots: ["city", "date"]
+  
+  ml_model: 
+    path: "models/intent_classifier_v3.h5"
+    threshold: 0.75
+
+# 3. 对话流程状态机
+dialogue_flow:
+  states:
+    - name: "welcome"
+      transitions:
+        - intent: "greeting"
+          next_state: "main_menu"
+          actions:
+            - type: "response"
+              content: "您好，我是${bot_name}，请问需要什么帮助？"
+            - type: "set_context"
+              key: "conversation_start_time"
+              value: "${timestamp}"
+
+    - name: "weather_query"
+      entry_actions:
+        - type: "call_api"
+          endpoint: "https://api.weather.com/v3"
+          params:
+            city: "${slot:city}"
+            date: "${slot:date}"
+          result_key: "weather_data"
+      
+      responses:
+        - condition: "${weather_data.temp > 30}"
+          template: |
+            ${city}${date}天气炎热，最高气温${temp}℃，
+            记得做好防晒哦！🌞
+        
+        - default: true
+          template: "${city}${date}气温${temp}℃，${description}"
+
+# 4. 上下文管理
+context_management:
+  slot_filling:
+    - slot: "city"
+      prompts:
+        - "请问您要查询哪个城市？"
+        - "需要了解哪个城市的天气呢？"
+      validation:
+        type: "regex"
+        pattern: "^[\u4e00-\u9fa5]{2,4}市?$"
+        error_msg: "请输入有效城市名称，如：北京、上海市"
+
+  context_timeout: 300  # 单位：秒
+
+# 5. 多模态响应
+response_templates:
+  text:
+    farewell: 
+      - "感谢使用，再见！👋"
+      - "有任何问题随时找我哦~"
+
+  rich_content:
+    - type: "quick_reply"
+      buttons:
+        - title: "查看天气"
+          payload: "WEATHER_QUERY"
+        - title: "联系客服"
+          payload: "HUMAN_HELP"
+
+    - type: "carousel"
+      items: 
+        - title: "操作指南"
+          image: "https://example.com/guide.jpg"
+          buttons: [...]
+  
+# 6. 异常处理
+error_handling:
+  default_fallback: "抱歉，我还在学习中，暂时无法回答这个问题"
+  escalation_rules:
+    - condition: "${error.code == 503}"
+      action: "redirect_to_human"
+  
+  retry_policy:
+    max_attempts: 2
+    backoff: 1000  # 毫秒
+
+# 7. 个性化配置
+personalization:
+  user_segments:
+    - name: "vip_users"
+      condition: "${user.level >= 3}"
+      response_modifier: 
+        prefix: "尊贵的VIP用户，"
+
+  time_based_rules:
+    - time_range: "00:00-06:00"
+      response_suffix: "（夜间服务模式）"
+
+# 8. 学习机制
+learning:
+  feedback_loop:
+    negative_triggers:
+      - user_sentiment: "negative"
+      - explicit_feedback: "dislike"
+    
+    action: "flag_for_review"
+
+# 支持 A/B 测试
+experimental:
+  variant_groups:
+    - name: "welcome_message"
+      variants:
+        - weight: 50%
+          content: "新版本问候语1"
+        - weight: 50% 
+          content: "传统问候语"
+
+
