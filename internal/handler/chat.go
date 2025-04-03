@@ -115,6 +115,10 @@ func ServeWebSocket(c *gin.Context, upgrader websocket.Upgrader) {
 				log.Printf("Failed to save feedback: %v", result.Error)
 			}
 		} else {
+			message.MessageType = model.MessageTypeNormal
+			if result := db.Create(&message); result.Error != nil {
+				log.Printf("Failed to save chat: %v", result.Error)
+			}
 			// 处理业务逻辑
 			response := chatbotEngine.ProcessMessage(
 				strconv.FormatUint(validCustomerID, 10),
